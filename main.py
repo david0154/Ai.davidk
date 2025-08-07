@@ -19,7 +19,7 @@ TIMEZONE = "Asia/Kolkata"
 
 # ==== MODEL CONFIG ====
 MODEL_FOLDER = "model"
-MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"  # ✅ updated to actual file
+MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
 
 # ==== VERIFY MODEL PRESENCE ====
@@ -33,7 +33,7 @@ app = FastAPI()
 # ==== CORS SETUP ====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your Netlify domain for security
+    allow_origins=["*"],  # Replace with Netlify domain in production
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -63,7 +63,7 @@ def get_indian_news():
     except Exception:
         return "⚠️ Failed to fetch news."
 
-# ==== API ROUTES ====
+# ==== ROUTES ====
 
 @app.get("/info")
 def info():
@@ -81,20 +81,35 @@ def info():
 
 @app.post("/chat")
 async def chat(request: Request):
-    data = await request.json()
-    message = data.get("message", "").strip()
+    try:
+        data = await request.json()
+        message = data.get("message", "").strip()
+        print("🟡 Received message:", message)
 
-    if not message:
-        return {"reply": "Please type something."}
+        if not message:
+            return {"reply": "⚠️ Please type something."}
 
-    # Commands
-    if message.lower() == "!time":
-        return {"reply": get_current_ist()}
-    if message.lower() == "!news":
-        return {"reply": get_indian_news()}
+        # Commands
+        if message.lower() == "!time":
+            return {"reply": get_current_ist()}
 
-    # AI Response
-    prompt = f"[INST] {message} [/INST]"
-    output = llm(prompt, max_tokens=200)
-    reply = output["choices"][0]["text"]
-    return {"reply": reply.strip()}
+        if message.lower() == "!news":
+            return {"reply": get_indian_news()}
+
+        # AI Prompt
+        prompt = f"[INST] {message} [/INST]"
+        output = llm(prompt, max_tokens=200)
+
+        print("📤 LLM raw output:", output)
+
+        # Extract reply safely
+        choices = output.get("choices", [])
+        if not choices or not choices[0].get("text"):
+            return {"reply": "⚠️ No response from model."}
+
+        reply = choices[0]["text"].strip()
+        return {"reply": reply}
+
+    except Exception as e:
+        print("❌ Error in /chat route:", e)
+        return {"reply": f"⚠️ Internal Error: {str(e)}"}
