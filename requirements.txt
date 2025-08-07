@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-llama-cpp-python==0.2.72
-requests
+llama-cpp-python
 beautifulsoup4
 pytz
+requests
