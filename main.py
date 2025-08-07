@@ -18,11 +18,9 @@ AI_WEBSITE = "https://ai.davidk.online/"
 TIMEZONE = "Asia/Kolkata"
 
 # ==== MODEL CONFIG ====
-MODEL_FOLDER = "model"
 MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
-MODEL_URL = f"https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-GGUF/resolve/main/{MODEL_NAME}"
+MODEL_URL = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/resolve/main/tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
-
 # ==== AUTO DOWNLOAD MODEL IF MISSING ====
 Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
 
