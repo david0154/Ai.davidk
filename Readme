@@ -4,3 +4,8 @@ pip install -r requirements.txt
 
 
 uvicorn main:app --reload
+
+
+⬇️ Downloading model: tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+❌ Failed to download model: 401 Client Error: Unauthorized for url: https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+Exiting due to model download failure.
