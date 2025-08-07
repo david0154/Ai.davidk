@@ -18,19 +18,18 @@ AI_WEBSITE = "https://ai.davidk.online/"
 TIMEZONE = "Asia/Kolkata"
 
 # ==== MODEL CONFIG ====
+MODEL_FOLDER = "model"
 MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
-MODEL_URL = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/resolve/main/tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
+MODEL_URL = f"https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/resolve/main/{MODEL_NAME}"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
-# ==== AUTO DOWNLOAD MODEL IF MISSING ====
-Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
 
+# ==== DOWNLOAD MODEL IF NOT EXISTS ====
+Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
 if not os.path.exists(MODEL_PATH):
     print(f"⬇️ Downloading model: {MODEL_NAME}")
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        with requests.get(MODEL_URL, headers=headers, stream=True, timeout=30) as r:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        with requests.get(MODEL_URL, headers=headers, stream=True, timeout=60) as r:
             r.raise_for_status()
             with open(MODEL_PATH, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
@@ -38,8 +37,7 @@ if not os.path.exists(MODEL_PATH):
         print("✅ Model downloaded successfully")
     except Exception as e:
         print(f"❌ Failed to download model: {e}")
-        if not os.path.exists(MODEL_PATH):
-            raise SystemExit("❌ Model download failed and file not found. Exiting...")
+        MODEL_PATH = None  # Skip loading model
 
 # ==== INIT FASTAPI ====
 app = FastAPI()
@@ -47,24 +45,24 @@ app = FastAPI()
 # ==== CORS SETUP ====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with Netlify domain if needed
+    allow_origins=["*"],  # Change to Netlify domain later
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# ==== LOAD MODEL ====
-llm = Llama(
-    model_path=MODEL_PATH,
-    n_ctx=1024,
-    n_threads=2
-)
+# ==== LOAD MODEL IF AVAILABLE ====
+llm = None
+if MODEL_PATH and os.path.exists(MODEL_PATH):
+    try:
+        llm = Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=2)
+    except Exception as e:
+        print(f"❌ Failed to load model: {e}")
+        llm = None
 
-# ==== UTILITIES ====
+# ==== TOOLS ====
 def get_current_ist():
     now = datetime.now(pytz.timezone(TIMEZONE))
-    date_str = now.strftime("%d-%m-%Y")
-    time_str = now.strftime("%I:%M %p")
-    return f"📅 {date_str} | 🕒 {time_str} (IST)"
+    return f"📅 {now.strftime('%d-%m-%Y')} | 🕒 {now.strftime('%I:%M %p')} (IST)"
 
 def get_indian_news():
     try:
@@ -72,13 +70,11 @@ def get_indian_news():
         r = requests.get(url, timeout=5)
         soup = BeautifulSoup(r.text, "html.parser")
         headlines = soup.select("h3 a")
-        news = [f"• {h.text.strip()}" for h in headlines[:3]]
-        return "\n".join(news)
+        return "\n".join([f"• {h.text.strip()}" for h in headlines[:3]])
     except:
         return "⚠️ Failed to fetch news."
 
 # ==== ROUTES ====
-
 @app.get("/info")
 def info():
     return {
@@ -90,36 +86,27 @@ def info():
         "location": AI_LOCATION,
         "timezone": TIMEZONE,
         "version": "1.0",
-        "status": "online"
+        "status": "online" if llm else "model missing"
     }
 
 @app.post("/chat")
 async def chat(request: Request):
+    data = await request.json()
+    message = data.get("message", "").strip()
+
+    if not message:
+        return {"reply": "⚠️ Please type something."}
+    if message.lower() == "!time":
+        return {"reply": get_current_ist()}
+    if message.lower() == "!news":
+        return {"reply": get_indian_news()}
+    if not llm:
+        return {"reply": "⚠️ AI model is not loaded."}
+
     try:
-        data = await request.json()
-        message = data.get("message", "").strip()
-        print("🟡 Received:", message)
-
-        if not message:
-            return {"reply": "⚠️ Please type something."}
-
-        # Commands
-        if message.lower() == "!time":
-            return {"reply": get_current_ist()}
-        if message.lower() == "!news":
-            return {"reply": get_indian_news()}
-
-        # AI Reply
         prompt = f"[INST] {message} [/INST]"
         output = llm(prompt, max_tokens=200)
-        print("📤 Model Output:", output)
-
-        choices = output.get("choices", [])
-        if not choices or not choices[0].get("text"):
-            return {"reply": "⚠️ Model returned empty."}
-
-        return {"reply": choices[0]["text"].strip()}
-
+        reply = output["choices"][0]["text"].strip()
+        return {"reply": reply}
     except Exception as e:
-        print("❌ /chat error:", e)
-        return {"reply": f"⚠️ Internal error: {str(e)}"}
+        return {"reply": f"⚠️ AI error: {e}"}
