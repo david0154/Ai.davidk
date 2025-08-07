@@ -19,8 +19,9 @@ TIMEZONE = "Asia/Kolkata"
 
 MODEL_FOLDER = "model"
 MODEL_NAME = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-MODEL_URL = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-GGUF/resolve/main/" + MODEL_NAME
+MODEL_URL = f"https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-GGUF/resolve/main/{MODEL_NAME}"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
+
 # ==== CREATE FOLDER & DOWNLOAD MODEL ====
 Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
 
