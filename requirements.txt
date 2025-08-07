@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+llama-cpp-python==0.2.72
+requests
+beautifulsoup4
+pytz
