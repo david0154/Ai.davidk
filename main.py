@@ -20,12 +20,28 @@ TIMEZONE = "Asia/Kolkata"
 # ==== MODEL CONFIG ====
 MODEL_FOLDER = "model"
 MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
+MODEL_URL = f"https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-GGUF/resolve/main/{MODEL_NAME}"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
 
-# ==== VERIFY MODEL PRESENCE ====
+# ==== AUTO DOWNLOAD MODEL IF MISSING ====
 Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
+
 if not os.path.exists(MODEL_PATH):
-    raise SystemExit(f"❌ Model not found at {MODEL_PATH}. Please download and place it manually.")
+    print(f"⬇️ Downloading model: {MODEL_NAME}")
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        with requests.get(MODEL_URL, headers=headers, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        print("✅ Model downloaded successfully")
+    except Exception as e:
+        print(f"❌ Failed to download model: {e}")
+        if not os.path.exists(MODEL_PATH):
+            raise SystemExit("❌ Model download failed and file not found. Exiting...")
 
 # ==== INIT FASTAPI ====
 app = FastAPI()
@@ -33,12 +49,12 @@ app = FastAPI()
 # ==== CORS SETUP ====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with Netlify domain in production
+    allow_origins=["*"],  # Replace with Netlify domain if needed
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# ==== LOAD LLAMA MODEL ====
+# ==== LOAD MODEL ====
 llm = Llama(
     model_path=MODEL_PATH,
     n_ctx=1024,
@@ -60,7 +76,7 @@ def get_indian_news():
         headlines = soup.select("h3 a")
         news = [f"• {h.text.strip()}" for h in headlines[:3]]
         return "\n".join(news)
-    except Exception:
+    except:
         return "⚠️ Failed to fetch news."
 
 # ==== ROUTES ====
@@ -84,7 +100,7 @@ async def chat(request: Request):
     try:
         data = await request.json()
         message = data.get("message", "").strip()
-        print("🟡 Received message:", message)
+        print("🟡 Received:", message)
 
         if not message:
             return {"reply": "⚠️ Please type something."}
@@ -92,24 +108,20 @@ async def chat(request: Request):
         # Commands
         if message.lower() == "!time":
             return {"reply": get_current_ist()}
-
         if message.lower() == "!news":
             return {"reply": get_indian_news()}
 
-        # AI Prompt
+        # AI Reply
         prompt = f"[INST] {message} [/INST]"
         output = llm(prompt, max_tokens=200)
+        print("📤 Model Output:", output)
 
-        print("📤 LLM raw output:", output)
-
-        # Extract reply safely
         choices = output.get("choices", [])
         if not choices or not choices[0].get("text"):
-            return {"reply": "⚠️ No response from model."}
+            return {"reply": "⚠️ Model returned empty."}
 
-        reply = choices[0]["text"].strip()
-        return {"reply": reply}
+        return {"reply": choices[0]["text"].strip()}
 
     except Exception as e:
-        print("❌ Error in /chat route:", e)
-        return {"reply": f"⚠️ Internal Error: {str(e)}"}
+        print("❌ /chat error:", e)
+        return {"reply": f"⚠️ Internal error: {str(e)}"}
