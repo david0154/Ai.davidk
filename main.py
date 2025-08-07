@@ -19,8 +19,8 @@ TIMEZONE = "Asia/Kolkata"
 
 # ==== MODEL CONFIG ====
 MODEL_FOLDER = "model"
-MODEL_NAME = "tinyllama-1.1b-chat-v0.3.Q4_K_M.gguf"
-MODEL_URL = f"https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/resolve/main/{MODEL_NAME}"
+MODEL_NAME = "Tiny-GPT-1B-mini-Q4_K_M.gguf"
+MODEL_URL = f"https://huggingface.co/Pi3141/Tiny-GPT-1B-mini-GGUF/resolve/main/{MODEL_NAME}"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
 
 # ==== DOWNLOAD MODEL IF NOT EXISTS ====
