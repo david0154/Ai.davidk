@@ -17,18 +17,22 @@ DEVELOPER_WEBSITE = "https://davidk.online/"
 AI_WEBSITE = "https://ai.davidk.online/"
 TIMEZONE = "Asia/Kolkata"
 
+# ==== MODEL CONFIG ====
 MODEL_FOLDER = "model"
 MODEL_NAME = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 MODEL_URL = f"https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-GGUF/resolve/main/{MODEL_NAME}"
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_NAME)
 
-# ==== DOWNLOAD MODEL IF NEEDED ====
+# ==== ENSURE MODEL EXISTS ====
 Path(MODEL_FOLDER).mkdir(parents=True, exist_ok=True)
 
 if not os.path.exists(MODEL_PATH):
     print(f"⬇️ Downloading model: {MODEL_NAME}")
     try:
-        with requests.get(MODEL_URL, stream=True, timeout=30) as r:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        with requests.get(MODEL_URL, headers=headers, stream=True, timeout=30) as r:
             r.raise_for_status()
             with open(MODEL_PATH, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
@@ -36,12 +40,13 @@ if not os.path.exists(MODEL_PATH):
         print("✅ Model downloaded successfully")
     except Exception as e:
         print(f"❌ Failed to download model: {e}")
-        raise SystemExit("Exiting due to model download failure.")
+        if not os.path.exists(MODEL_PATH):
+            raise SystemExit("❌ Model not found and download failed. Exiting.")
 
 # ==== INIT FASTAPI ====
 app = FastAPI()
 
-# ==== ENABLE CORS ====
+# ==== CORS SETUP ====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Replace with your Netlify domain for production
@@ -49,14 +54,14 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# ==== LOAD MODEL ====
+# ==== LOAD LLAMA MODEL ====
 llm = Llama(
     model_path=MODEL_PATH,
     n_ctx=1024,
     n_threads=2
 )
 
-# ==== TOOLS ====
+# ==== UTILITIES ====
 def get_current_ist():
     now = datetime.now(pytz.timezone(TIMEZONE))
     date_str = now.strftime("%d-%m-%Y")
@@ -74,7 +79,7 @@ def get_indian_news():
     except Exception:
         return "⚠️ Failed to fetch news."
 
-# ==== ROUTES ====
+# ==== API ROUTES ====
 
 @app.get("/info")
 def info():
@@ -98,10 +103,9 @@ async def chat(request: Request):
     if not message:
         return {"reply": "Please type something."}
 
-    # Commands
+    # Custom Commands
     if message.lower() == "!time":
         return {"reply": get_current_ist()}
-
     if message.lower() == "!news":
         return {"reply": get_indian_news()}
 
